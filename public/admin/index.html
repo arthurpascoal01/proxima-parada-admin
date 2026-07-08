@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Login — Painel Próxima Parada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="login-shell">
+  <div class="login-card">
+    <div class="dot"></div>
+    <h1>Painel Próxima Parada</h1>
+    <p>Acesso restrito à administração do site.</p>
+    <div class="error-box" id="errorBox"></div>
+    <form id="loginForm">
+      <div class="field">
+        <label>Usuário</label>
+        <input class="input" type="text" id="username" autocomplete="username" required>
+      </div>
+      <div class="field">
+        <label>Senha</label>
+        <input class="input" type="password" id="password" autocomplete="current-password" required>
+      </div>
+      <button class="btn btn-mint" type="submit" style="width:100%; justify-content:center;" id="loginBtn">Entrar</button>
+    </form>
+  </div>
+</div>
+<script>
+const form = document.getElementById('loginForm');
+const errorBox = document.getElementById('errorBox');
+const loginBtn = document.getElementById('loginBtn');
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  errorBox.style.display = 'none';
+  loginBtn.disabled = true;
+  loginBtn.innerHTML = '<span class="spin"></span> Entrando...';
+
+  try {
+    const res = await fetch('/api/auth/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        username: document.getElementById('username').value,
+        password: document.getElementById('password').value
+      })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'Erro ao entrar.');
+    window.location.href = '/admin/dashboard.html';
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.style.display = 'block';
+    loginBtn.disabled = false;
+    loginBtn.textContent = 'Entrar';
+  }
+});
+</script>
+</body>
+</html>
