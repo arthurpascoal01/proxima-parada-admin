@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cidades — Painel Próxima Parada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <div class="sidebar" id="sidebar"></div>
+  <main class="main">
+    <div class="page-header"><div><span class="eyebrow">BASE DE DESTINOS</span><h1>Cidades</h1><p>Cadastre as cidades que aparecem no site e nos formulários de estabelecimentos.</p></div><button class="btn btn-mint" id="newCity">+ Nova cidade</button></div>
+    <section class="city-layout">
+      <form id="cityForm" class="card city-form" hidden>
+        <input type="hidden" id="databaseId">
+        <div class="form-heading"><div><h2 id="formTitle">Nova cidade</h2><p>O identificador conecta a cidade aos estabelecimentos e ao site.</p></div><button type="button" class="icon-close" id="closeForm" aria-label="Fechar">×</button></div>
+        <div class="form-grid">
+          <div class="field"><label for="name">Nome *</label><input class="input" id="name" required placeholder="Ex.: Curitiba"></div>
+          <div class="field"><label for="slug">Identificador *</label><input class="input mono" id="slug" required placeholder="curitiba"><small>Minúsculo, sem espaços. Gerado automaticamente.</small></div>
+          <div class="field"><label for="state">Estado</label><input class="input" id="state" maxlength="2" placeholder="PR"></div>
+          <div class="field"><label for="country">País</label><input class="input" id="country" value="Brasil"></div>
+          <div class="field"><label for="lat">Latitude *</label><input class="input" id="lat" type="number" step="any" min="-90" max="90" required placeholder="-25.4284"></div>
+          <div class="field"><label for="lon">Longitude *</label><input class="input" id="lon" type="number" step="any" min="-180" max="180" required placeholder="-49.2733"></div>
+        </div>
+        <div class="form-grid full form-gap"><div class="field"><label for="coverImage">URL da imagem de capa</label><input class="input" id="coverImage" type="url" placeholder="https://..."></div><div class="field"><label for="gmaps">Link do Google Maps</label><input class="input" id="gmaps" type="url" placeholder="https://maps.google.com/..."></div></div>
+        <label class="switch-row"><input id="active" type="checkbox" checked><span class="switch"></span><span><b>Cidade ativa</b><small>Visível no site público e disponível para novos cadastros.</small></span></label>
+        <div class="form-actions"><button class="btn btn-primary" id="saveCity" type="submit">Salvar cidade</button><button class="btn btn-ghost" id="cancelForm" type="button">Cancelar</button></div>
+      </form>
+      <div class="toolbar city-toolbar"><div class="search-field">⌕ <input id="search" class="input" placeholder="Buscar cidade ou estado..."></div><span id="cityCount" class="count-pill">0 cidades</span></div>
+      <div id="cityList" class="city-grid"></div>
+      <div id="empty" class="empty-state" hidden><b>Nenhuma cidade cadastrada.</b><p>Crie a primeira cidade para começar a alimentar o site.</p></div>
+    </section>
+  </main>
+</div>
+<script src="admin.js"></script>
+<script>
+initSidebar('cidades');
+let cities=[];
+const form=document.getElementById('cityForm');
+const slugify=v=>v.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'');
+const escapeHTML=v=>String(v??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+function openForm(city){
+  form.hidden=false;form.scrollIntoView({behavior:'smooth',block:'start'});
+  document.getElementById('formTitle').textContent=city?'Editar cidade':'Nova cidade';
+  ['databaseId','name','slug','state','country','lat','lon','coverImage','gmaps'].forEach(id=>document.getElementById(id).value=city?.[id]??(id==='country'?'Brasil':''));
+  document.getElementById('active').checked=city?.active!==false;
+}
+function closeForm(){form.hidden=true;form.reset();document.getElementById('databaseId').value='';document.getElementById('country').value='Brasil';document.getElementById('active').checked=true;}
+async function load(){try{cities=await api('/api/cities?all=1');render();}catch(err){showToast(err.message,true)}}
+function render(){
+  const q=document.getElementById('search').value.toLowerCase();
+  const filtered=cities.filter(c=>!q||`${c.name} ${c.state} ${c.slug}`.toLowerCase().includes(q));
+  document.getElementById('cityCount').textContent=`${filtered.length} ${filtered.length===1?'cidade':'cidades'}`;
+  document.getElementById('empty').hidden=filtered.length!==0;
+  document.getElementById('cityList').innerHTML=filtered.map(c=>`<article class="city-card ${c.active?'':'inactive'}">
+    <div class="city-cover" style="${c.coverImage?`background-image:linear-gradient(180deg,transparent,rgba(16,33,29,.72)),url('${escapeHTML(c.coverImage)}')`:''}"><span class="status-dot"></span><span>${c.active?'Ativa':'Inativa'}</span></div>
+    <div class="city-body"><div><span class="mono city-code">${escapeHTML(c.slug)}</span><h3>${escapeHTML(c.name)}${c.state?` <small>· ${escapeHTML(c.state)}</small>`:''}</h3><p>${Number(c.lat).toFixed(4)}, ${Number(c.lon).toFixed(4)}</p></div>
+    <div class="city-actions"><button class="btn btn-ghost btn-sm" data-edit="${c.databaseId}">Editar</button><button class="btn btn-danger btn-sm" data-delete="${c.databaseId}">Excluir</button></div></div></article>`).join('');
+}
+document.getElementById('newCity').onclick=()=>openForm();document.getElementById('closeForm').onclick=closeForm;document.getElementById('cancelForm').onclick=closeForm;
+document.getElementById('name').addEventListener('input',e=>{if(!document.getElementById('databaseId').value)document.getElementById('slug').value=slugify(e.target.value)});
+document.getElementById('search').addEventListener('input',render);
+document.getElementById('cityList').addEventListener('click',async e=>{
+  const edit=e.target.closest('[data-edit]'),del=e.target.closest('[data-delete]');
+  if(edit)return openForm(cities.find(c=>c.databaseId===edit.dataset.edit));
+  if(del&&confirm('Excluir esta cidade?')){try{await api(`/api/cities/${del.dataset.delete}`,{method:'DELETE'});showToast('Cidade excluída.');load()}catch(err){showToast(err.message,true)}}
+});
+form.addEventListener('submit',async e=>{e.preventDefault();const button=document.getElementById('saveCity');button.disabled=true;button.innerHTML='<span class="spin"></span> Salvando...';const databaseId=document.getElementById('databaseId').value;const payload={name:document.getElementById('name').value,slug:document.getElementById('slug').value,state:document.getElementById('state').value,country:document.getElementById('country').value,lat:Number(document.getElementById('lat').value),lon:Number(document.getElementById('lon').value),coverImage:document.getElementById('coverImage').value,gmaps:document.getElementById('gmaps').value,active:document.getElementById('active').checked};try{await api(databaseId?`/api/cities/${databaseId}`:'/api/cities',{method:databaseId?'PUT':'POST',body:JSON.stringify(payload)});showToast(databaseId?'Cidade atualizada.':'Cidade cadastrada.');closeForm();load()}catch(err){showToast(err.message,true)}finally{button.disabled=false;button.textContent='Salvar cidade'}});
+load();
+</script>
+</body></html>

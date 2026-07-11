@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Cadastro — Painel Próxima Parada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <h1 id="pageTitle">Novo estabelecimento</h1>
+        <p>Preencha os dados abaixo. Campos com * são obrigatórios.</p>
+      </div>
+      <a href="dashboard.html" class="btn btn-ghost">← Voltar</a>
+    </div>
+
+    <form id="estForm">
+      <div class="card" style="margin-bottom:16px;">
+        <div class="form-grid">
+          <div class="field">
+            <label>Tipo de estabelecimento *</label>
+            <select id="type" required>
+              <option value="">Selecione...</option>
+              <option value="restaurante">Restaurante</option>
+              <option value="hotel">Hotel</option>
+              <option value="loja">Loja</option>
+              <option value="passeio">Passeio</option>
+              <option value="ponto-turistico">Ponto turístico</option>
+              <option value="cafe">Café</option>
+              <option value="familia">Família</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Nome *</label>
+            <input class="input" id="name" required>
+          </div>
+          <div class="field">
+            <label>Cidade *</label>
+            <select id="city" required>
+              <option value="">Selecione...</option>
+              <option value="" disabled>Carregando cidades...</option>
+            </select>
+          </div>
+        </div>
+        <div class="form-grid full" style="margin-top:16px;">
+          <div class="field">
+            <label>Descrição</label>
+            <textarea id="description" rows="3"></textarea>
+          </div>
+        </div>
+        <div class="form-grid" style="margin-top:16px;">
+          <div class="field">
+            <label>Endereço</label>
+            <input class="input" id="address">
+          </div>
+          <div class="field">
+            <label>Nível de preço (exibido como $ no site)</label>
+            <select id="priceLevel">
+              <option value="0">Grátis</option>
+              <option value="1">$</option>
+              <option value="2" selected>$$</option>
+              <option value="3">$$$</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Nota (0 a 5)</label>
+            <input class="input" id="rating" type="number" min="0" max="5" step="0.1" value="4.5">
+          </div>
+          <div class="field">
+            <label>Telefone</label>
+            <input class="input" id="phone">
+          </div>
+          <div class="field">
+            <label>WhatsApp</label>
+            <input class="input" id="whatsapp">
+          </div>
+          <div class="field">
+            <label>Website</label>
+            <input class="input" id="website">
+          </div>
+          <div class="field">
+            <label>Status</label>
+            <select id="status">
+              <option value="ativo">Ativo</option>
+              <option value="inativo">Inativo</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="card" id="typeFieldsCard" style="margin-bottom:16px; display:none;">
+        <div class="form-grid" id="typeFieldsGrid"></div>
+      </div>
+
+      <div class="card" style="margin-bottom:16px;">
+        <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:10px; color:var(--petrol-2);">Fotos e vídeos</label>
+        <div class="upload-zone" id="dropZone">
+          <p>Arraste arquivos aqui ou clique para selecionar</p>
+          <p class="mono" style="font-size:11.5px; color:var(--gray); margin-top:6px;">JPG, PNG, WEBP, MP4, WEBM, MOV — até 200MB por arquivo</p>
+          <input type="file" id="fileInput" multiple accept="image/*,video/*" style="display:none;">
+        </div>
+        <div class="upload-bar" id="uploadBarWrap" style="display:none;"><div class="upload-bar-fill" id="uploadBarFill"></div></div>
+        <div class="upload-preview" id="preview"></div>
+      </div>
+
+      <div style="display:flex; gap:12px;">
+        <button type="submit" class="btn btn-mint" id="saveBtn">Salvar estabelecimento</button>
+        <a href="dashboard.html" class="btn btn-ghost">Cancelar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="admin.js"></script>
+<script>
+initSidebar('dashboard');
+
+const params = new URLSearchParams(location.search);
+const editId = params.get('id');
+let media = []; // { url, type }
+let pendingCity = '';
+
+async function loadCities(){
+  const select=document.getElementById('city');
+  try{
+    const cities=await api('/api/cities');
+    select.innerHTML='<option value="">Selecione...</option>'+cities.map(c=>`<option value="${c.id}">${c.name}${c.state?' · '+c.state:''}</option>`).join('');
+    if(pendingCity) select.value=pendingCity;
+    if(!cities.length) select.innerHTML='<option value="">Cadastre uma cidade primeiro</option>';
+  }catch(err){select.innerHTML='<option value="">Erro ao carregar cidades</option>';showToast(err.message,true)}
+}
+
+const TYPE_FIELDS = {
+  restaurante: [
+    { key: 'cuisine', label: 'Tipo de cozinha' },
+    { key: 'hours', label: 'Horário de funcionamento' },
+    { key: 'capacity', label: 'Capacidade (lugares)' }
+  ],
+  hotel: [
+    { key: 'rooms', label: 'Número de quartos' },
+    { key: 'checkIn', label: 'Check-in' },
+    { key: 'checkOut', label: 'Check-out' },
+    { key: 'amenities', label: 'Comodidades (separe por vírgula)' }
+  ],
+  loja: [
+    { key: 'category', label: 'Categoria de produtos' },
+    { key: 'hours', label: 'Horário de funcionamento' }
+  ],
+  passeio: [
+    { key: 'duration', label: 'Duração' },
+    { key: 'meetingPoint', label: 'Ponto de encontro' },
+    { key: 'difficulty', label: 'Nível de dificuldade' }
+  ],
+  'ponto-turistico': [
+    { key: 'accessType', label: 'Tipo de acesso (trilha, mirante, etc.)' },
+    { key: 'bestTime', label: 'Melhor horário para visitar' }
+  ]
+};
+
+function renderTypeFields(type) {
+  const card = document.getElementById('typeFieldsCard');
+  const grid = document.getElementById('typeFieldsGrid');
+  const fields = TYPE_FIELDS[type];
+  if (!fields) { card.style.display = 'none'; grid.innerHTML = ''; return; }
+  card.style.display = 'block';
+  grid.innerHTML = fields.map(f => `
+    <div class="field">
+      <label>${f.label}</label>
+      <input class="input" data-typefield="${f.key}">
+    </div>
+  `).join('');
+}
+
+document.getElementById('type').addEventListener('change', (e) => renderTypeFields(e.target.value));
+
+function renderPreview() {
+  document.getElementById('preview').innerHTML = media.map((m, idx) => `
+    <div class="upload-thumb">
+      ${m.type === 'video' ? `<video src="${m.url}" muted></video>` : `<img src="${m.url}">`}
+      <button type="button" class="rm" onclick="removeMedia(${idx})">✕</button>
+    </div>
+  `).join('');
+}
+function removeMedia(idx) { media.splice(idx, 1); renderPreview(); }
+
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+dropZone.addEventListener('click', () => fileInput.click());
+dropZone.addEventListener('dragover', (e) => { e.preventDefault(); dropZone.classList.add('dragover'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragover'));
+dropZone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropZone.classList.remove('dragover');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', () => handleFiles(fileInput.files));
+
+async function handleFiles(fileList) {
+  if (!fileList.length) return;
+  const formData = new FormData();
+  Array.from(fileList).forEach(f => formData.append('files', f));
+
+  const barWrap = document.getElementById('uploadBarWrap');
+  const barFill = document.getElementById('uploadBarFill');
+  barWrap.style.display = 'block';
+  barFill.style.width = '10%';
+
+  try {
+    const xhr = new XMLHttpRequest();
+    const result = await new Promise((resolve, reject) => {
+      xhr.upload.addEventListener('progress', (e) => {
+        if (e.lengthComputable) barFill.style.width = Math.round((e.loaded / e.total) * 100) + '%';
+      });
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) resolve(JSON.parse(xhr.responseText));
+        else reject(new Error(JSON.parse(xhr.responseText).error || 'Erro no upload.'));
+      };
+      xhr.onerror = () => reject(new Error('Erro de rede no upload.'));
+      xhr.open('POST', '/api/upload');
+      xhr.send(formData);
+    });
+    media = media.concat(result.files);
+    renderPreview();
+    showToast('Arquivos enviados com sucesso.');
+  } catch (err) {
+    showToast(err.message, true);
+  } finally {
+    barWrap.style.display = 'none';
+    barFill.style.width = '0%';
+    fileInput.value = '';
+  }
+}
+
+async function loadForEdit() {
+  if (!editId) return;
+  document.getElementById('pageTitle').textContent = 'Editar estabelecimento';
+  try {
+    const item = await api(`/api/establishments/${editId}`);
+    document.getElementById('type').value = item.type;
+    renderTypeFields(item.type);
+    document.getElementById('name').value = item.name || '';
+    document.getElementById('description').value = item.description || '';
+    document.getElementById('address').value = item.address || '';
+    pendingCity = item.city || '';
+    document.getElementById('city').value = pendingCity;
+    document.getElementById('priceLevel').value = item.priceLevel != null ? item.priceLevel : 2;
+    document.getElementById('rating').value = item.rating != null ? item.rating : 4.5;
+    document.getElementById('phone').value = item.phone || '';
+    document.getElementById('whatsapp').value = item.whatsapp || '';
+    document.getElementById('website').value = item.website || '';
+    document.getElementById('status').value = item.status || 'ativo';
+    media = (item.photos || []).map(url => ({ url, type: 'photo' }))
+      .concat((item.videos || []).map(url => ({ url, type: 'video' })));
+    renderPreview();
+    Object.entries(item.typeFields || {}).forEach(([k, v]) => {
+      const el = document.querySelector(`[data-typefield="${k}"]`);
+      if (el) el.value = v;
+    });
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+Promise.all([loadCities(),loadForEdit()]).then(()=>{if(pendingCity)document.getElementById('city').value=pendingCity});
+
+document.getElementById('estForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const saveBtn = document.getElementById('saveBtn');
+  saveBtn.disabled = true;
+  saveBtn.innerHTML = '<span class="spin"></span> Salvando...';
+
+  const typeFields = {};
+  document.querySelectorAll('[data-typefield]').forEach(el => {
+    typeFields[el.dataset.typefield] = el.value;
+  });
+
+  const payload = {
+    type: document.getElementById('type').value,
+    name: document.getElementById('name').value,
+    description: document.getElementById('description').value,
+    address: document.getElementById('address').value,
+    city: document.getElementById('city').value,
+    priceLevel: Number(document.getElementById('priceLevel').value),
+    rating: Number(document.getElementById('rating').value),
+    phone: document.getElementById('phone').value,
+    whatsapp: document.getElementById('whatsapp').value,
+    website: document.getElementById('website').value,
+    status: document.getElementById('status').value,
+    typeFields,
+    photos: media.filter(m => m.type === 'photo').map(m => m.url),
+    videos: media.filter(m => m.type === 'video').map(m => m.url)
+  };
+
+  try {
+    if (editId) {
+      await api(`/api/establishments/${editId}`, { method: 'PUT', body: JSON.stringify(payload) });
+    } else {
+      await api('/api/establishments', { method: 'POST', body: JSON.stringify(payload) });
+    }
+    showToast('Estabelecimento salvo com sucesso.');
+    setTimeout(() => window.location.href = 'dashboard.html', 600);
+  } catch (err) {
+    showToast(err.message, true);
+    saveBtn.disabled = false;
+    saveBtn.textContent = 'Salvar estabelecimento';
+  }
+});
+</script>
+</body>
+</html>

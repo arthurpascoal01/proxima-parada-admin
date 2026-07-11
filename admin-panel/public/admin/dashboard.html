@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Estabelecimentos — Painel Próxima Parada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <h1>Estabelecimentos</h1>
+        <p>Cadastre e gerencie restaurantes, hotéis, lojas e passeios do site.</p>
+      </div>
+      <a href="form.html" class="btn btn-mint">+ Novo estabelecimento</a>
+    </div>
+
+    <div class="toolbar">
+      <input class="input" style="max-width:280px" type="text" id="search" placeholder="Buscar por nome...">
+      <select id="typeFilter" style="max-width:200px">
+        <option value="">Todos os tipos</option>
+        <option value="restaurante">Restaurante</option>
+        <option value="hotel">Hotel</option>
+        <option value="loja">Loja</option>
+        <option value="passeio">Passeio</option>
+        <option value="ponto-turistico">Ponto turístico</option>
+        <option value="cafe">Café</option>
+        <option value="familia">Família</option>
+      </select>
+    </div>
+
+    <div id="list" class="grid-list"></div>
+    <div id="empty" class="empty-state" style="display:none;">Nenhum estabelecimento encontrado.</div>
+  </div>
+</div>
+
+<script src="admin.js"></script>
+<script>
+initSidebar('dashboard');
+
+let allItems = [];
+
+async function load() {
+  try {
+    allItems = await api('/api/establishments');
+    render();
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+function render() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const type = document.getElementById('typeFilter').value;
+  const filtered = allItems.filter(i =>
+    (!type || i.type === type) &&
+    (!search || i.name.toLowerCase().includes(search))
+  );
+
+  const list = document.getElementById('list');
+  const empty = document.getElementById('empty');
+
+  if (filtered.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = filtered.map(item => `
+    <div class="est-card">
+      <img src="${item.photos?.[0] || ''}" onerror="this.style.display='none'" alt="">
+      <div class="est-card-body">
+        <span class="chip chip-mint">${TYPE_LABELS[item.type] || item.type}</span>
+        ${item.featured ? '<span class="chip chip-gray" style="margin-left:6px;">Destaque</span>' : ''}
+        <h3 style="margin-top:8px;">${item.name}</h3>
+        <p>${item.address || 'Sem endereço cadastrado'}</p>
+        <div class="est-card-actions">
+          <a href="form.html?id=${item.id}" class="btn btn-ghost btn-sm">Editar</a>
+          <button class="btn btn-danger btn-sm" onclick="removeItem('${item.id}')">Excluir</button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function removeItem(id) {
+  if (!confirm('Tem certeza que deseja excluir este estabelecimento?')) return;
+  try {
+    await api(`/api/establishments/${id}`, { method: 'DELETE' });
+    showToast('Estabelecimento excluído.');
+    load();
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+document.getElementById('search').addEventListener('input', render);
+document.getElementById('typeFilter').addEventListener('change', render);
+
+load();
+</script>
+</body>
+</html>

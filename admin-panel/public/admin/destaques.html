@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Destaques — Painel Próxima Parada</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@700;800&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="admin-shell">
+  <div class="sidebar" id="sidebar"></div>
+  <div class="main">
+    <div class="page-header">
+      <div>
+        <h1>Destaques da homepage</h1>
+        <p>Ative os itens que devem aparecer no carrossel da home e arraste para definir a ordem. A home atualiza automaticamente.</p>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <label style="display:block; font-size:12.5px; font-weight:600; margin-bottom:10px; color:var(--petrol-2);">Ordem atual dos destaques</label>
+      <div id="featuredList"></div>
+      <div id="emptyFeatured" class="empty-state" style="display:none; padding:24px;">Nenhum destaque ativo ainda. Ative itens na lista abaixo.</div>
+    </div>
+
+    <div class="toolbar">
+      <input class="input" style="max-width:280px" type="text" id="search" placeholder="Buscar estabelecimento...">
+    </div>
+    <div id="allList" class="grid-list"></div>
+  </div>
+</div>
+
+<script src="admin.js"></script>
+<script>
+initSidebar('destaques');
+
+let allItems = [];
+let dragSrcId = null;
+
+async function load() {
+  try {
+    allItems = await api('/api/establishments');
+    renderFeatured();
+    renderAll();
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+function renderFeatured() {
+  const featured = allItems.filter(i => i.featured).sort((a, b) => (a.featuredOrder ?? 0) - (b.featuredOrder ?? 0));
+  const list = document.getElementById('featuredList');
+  const empty = document.getElementById('emptyFeatured');
+
+  if (featured.length === 0) {
+    list.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  list.innerHTML = featured.map(item => `
+    <div class="featured-item" draggable="true" data-id="${item.id}">
+      <span class="handle">⠿</span>
+      <img src="${item.photos?.[0] || ''}" onerror="this.style.visibility='hidden'">
+      <div style="flex:1;">
+        <span class="chip chip-mint">${TYPE_LABELS[item.type] || item.type}</span>
+        <div style="font-weight:600; margin-top:4px;">${item.name}</div>
+      </div>
+      <button class="btn btn-ghost btn-sm" onclick="toggleFeatured('${item.id}', false)">Remover destaque</button>
+    </div>
+  `).join('');
+
+  document.querySelectorAll('.featured-item').forEach(el => {
+    el.addEventListener('dragstart', () => { dragSrcId = el.dataset.id; el.classList.add('dragging'); });
+    el.addEventListener('dragend', () => el.classList.remove('dragging'));
+    el.addEventListener('dragover', (e) => e.preventDefault());
+    el.addEventListener('drop', async (e) => {
+      e.preventDefault();
+      const targetId = el.dataset.id;
+      if (targetId === dragSrcId) return;
+      const ids = featured.map(f => f.id);
+      const from = ids.indexOf(dragSrcId);
+      const to = ids.indexOf(targetId);
+      ids.splice(from, 1);
+      ids.splice(to, 0, dragSrcId);
+      try {
+        await api('/api/featured/reorder/bulk', { method: 'PATCH', body: JSON.stringify({ order: ids }) });
+        await load();
+        showToast('Ordem atualizada.');
+      } catch (err) {
+        showToast(err.message, true);
+      }
+    });
+  });
+}
+
+function renderAll() {
+  const search = document.getElementById('search').value.toLowerCase();
+  const filtered = allItems.filter(i => !search || i.name.toLowerCase().includes(search));
+
+  document.getElementById('allList').innerHTML = filtered.map(item => `
+    <div class="est-card">
+      <img src="${item.photos?.[0] || ''}" onerror="this.style.display='none'">
+      <div class="est-card-body">
+        <span class="chip chip-mint">${TYPE_LABELS[item.type] || item.type}</span>
+        <h3 style="margin-top:8px;">${item.name}</h3>
+        <div class="est-card-actions">
+          <button class="btn ${item.featured ? 'btn-danger' : 'btn-mint'} btn-sm" onclick="toggleFeatured('${item.id}', ${!item.featured})">
+            ${item.featured ? 'Remover destaque' : 'Destacar na home'}
+          </button>
+        </div>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function toggleFeatured(id, featured) {
+  try {
+    await api(`/api/featured/${id}`, { method: 'PATCH', body: JSON.stringify({ featured }) });
+    showToast(featured ? 'Adicionado aos destaques.' : 'Removido dos destaques.');
+    load();
+  } catch (err) {
+    showToast(err.message, true);
+  }
+}
+
+document.getElementById('search').addEventListener('input', renderAll);
+load();
+</script>
+</body>
+</html>
