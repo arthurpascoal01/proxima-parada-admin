@@ -11,6 +11,7 @@ const uploadRoutes = require('./routes/upload');
 const featuredRoutes = require('./routes/featured');
 const citiesRoutes = require('./routes/cities');
 const usersRoutes = require('./routes/users');
+const platformRoutes = require('./routes/platform');
 const { requireAuthPage } = require('./middleware/auth');
 const { connectDB } = require('./config/db');
 
@@ -54,6 +55,7 @@ app.use('/api/upload', uploadRoutes);
 app.use('/api/featured', featuredRoutes);
 app.use('/api/cities', citiesRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/platform', platformRoutes);
 
 // Painel admin (arquivos estáticos protegidos, exceto a tela de login)
 app.use('/admin', (req, res, next) => {
