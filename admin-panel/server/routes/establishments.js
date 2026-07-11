@@ -51,6 +51,8 @@ router.post('/', async (req, res) => {
       description: body.description || '',
       address: body.address || '',
       city: body.city || '',
+      lat: body.lat === '' || body.lat == null ? null : Number(body.lat),
+      lon: body.lon === '' || body.lon == null ? null : Number(body.lon),
       phone: body.phone || '',
       whatsapp: body.whatsapp || '',
       website: body.website || '',
