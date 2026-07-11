@@ -4,6 +4,7 @@ function sidebarHTML(active) {
   const items = [
     { href: 'dashboard.html', label: 'Estabelecimentos', key: 'dashboard' },
     { href: 'cidades.html', label: 'Cidades', key: 'cidades' },
+    { href: 'gestao.html', label: 'Gestão e moderação', key: 'gestao' },
     { href: 'destaques.html', label: 'Destaques da home', key: 'destaques' }
   ];
   return `
