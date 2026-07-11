@@ -17,6 +17,11 @@ const { connectDB } = require('./config/db');
 const app = express();
 const PORT = process.env.PORT || 8080;
 
+// O Render encaminha o IP real pelo primeiro proxy. Isso permite que o
+// express-rate-limit identifique cada visitante corretamente sem bloquear
+// cadastro ou login por causa do header X-Forwarded-For.
+app.set('trust proxy', 1);
+
 // Checagem de variáveis obrigatórias — falha rápido e claro se algo faltar no deploy.
 ['JWT_SECRET', 'ADMIN_USER', 'ADMIN_PASSWORD_HASH', 'MONGODB_URI', 'CLOUDINARY_CLOUD_NAME', 'CLOUDINARY_API_KEY', 'CLOUDINARY_API_SECRET'].forEach((key) => {
   if (!process.env[key]) {
