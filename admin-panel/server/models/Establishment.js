@@ -6,6 +6,8 @@ const establishmentSchema = new mongoose.Schema({
   description: { type: String, default: '' },
   address: { type: String, default: '' },
   city: { type: String, default: '' },
+  lat: { type: Number, default: null, min: -90, max: 90 },
+  lon: { type: Number, default: null, min: -180, max: 180 },
   phone: { type: String, default: '' },
   whatsapp: { type: String, default: '' },
   website: { type: String, default: '' },
