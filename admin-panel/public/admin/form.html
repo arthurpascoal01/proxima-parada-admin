@@ -60,6 +60,14 @@
             <input class="input" id="address">
           </div>
           <div class="field">
+            <label>Latitude real *</label>
+            <input class="input" id="lat" type="number" step="any" min="-90" max="90" placeholder="-23.5505">
+          </div>
+          <div class="field">
+            <label>Longitude real *</label>
+            <input class="input" id="lon" type="number" step="any" min="-180" max="180" placeholder="-46.6333">
+          </div>
+          <div class="field">
             <label>Nível de preço (exibido como $ no site)</label>
             <select id="priceLevel">
               <option value="0">Grátis</option>
@@ -247,6 +255,8 @@ async function loadForEdit() {
     document.getElementById('name').value = item.name || '';
     document.getElementById('description').value = item.description || '';
     document.getElementById('address').value = item.address || '';
+    document.getElementById('lat').value = item.lat ?? '';
+    document.getElementById('lon').value = item.lon ?? '';
     pendingCity = item.city || '';
     document.getElementById('city').value = pendingCity;
     document.getElementById('priceLevel').value = item.priceLevel != null ? item.priceLevel : 2;
@@ -284,6 +294,8 @@ document.getElementById('estForm').addEventListener('submit', async (e) => {
     name: document.getElementById('name').value,
     description: document.getElementById('description').value,
     address: document.getElementById('address').value,
+    lat: document.getElementById('lat').value,
+    lon: document.getElementById('lon').value,
     city: document.getElementById('city').value,
     priceLevel: Number(document.getElementById('priceLevel').value),
     rating: Number(document.getElementById('rating').value),
