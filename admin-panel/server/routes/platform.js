@@ -23,6 +23,13 @@ const AnalyticsEvent = mongoose.models.AnalyticsEvent || mongoose.model('Analyti
   type:{type:String,required:true,index:true}, spotId:{type:String,default:'',index:true}, city:{type:String,default:'',index:true},
   user:{type:mongoose.Schema.Types.ObjectId,ref:'User',default:null}, meta:{type:mongoose.Schema.Types.Mixed,default:{}}
 },{timestamps:true}));
+const Itinerary = mongoose.models.Itinerary || mongoose.model('Itinerary', new mongoose.Schema({
+  owner:{type:mongoose.Schema.Types.ObjectId,ref:'User',required:true,index:true}, name:{type:String,required:true,maxlength:100},
+  city:{type:String,default:''}, date:{type:String,default:''}, startTime:{type:String,default:'09:00'},
+  travelMode:{type:String,enum:['driving','walking','bicycling','transit'],default:'driving'},
+  items:{type:[{spotId:{type:String,required:true},order:{type:Number,default:0},durationMinutes:{type:Number,default:90,min:15,max:720},notes:{type:String,default:'',maxlength:500}}],default:[]},
+  shareToken:{type:String,unique:true,index:true}, public:{type:Boolean,default:false}
+},{timestamps:true}));
 const token = () => crypto.randomBytes(18).toString('base64url');
 
 router.get('/reviews/:spotId',async(req,res)=>res.json(await Review.find({spotId:req.params.spotId,status:'approved'}).sort({createdAt:-1}).limit(100).lean()));
@@ -38,6 +45,12 @@ router.post('/wishlists',requireUser,async(req,res)=>{const name=String(req.body
 router.put('/wishlists/:id',requireUser,async(req,res)=>{const update={};if(req.body.name!=null)update.name=String(req.body.name).trim();if(Array.isArray(req.body.items))update.items=req.body.items.slice(0,100);if(req.body.public!=null)update.public=!!req.body.public;const list=await Wishlist.findOneAndUpdate({_id:req.params.id,owner:req.userId},update,{new:true});if(!list)return res.status(404).json({error:'Lista não encontrada.'});res.json(list)});
 router.delete('/wishlists/:id',requireUser,async(req,res)=>{await Wishlist.deleteOne({_id:req.params.id,owner:req.userId});res.json({ok:true})});
 router.get('/shared/:token',async(req,res)=>{const list=await Wishlist.findOne({shareToken:req.params.token,public:true}).select('name items updatedAt');if(!list)return res.status(404).json({error:'Lista não encontrada.'});res.json(list)});
+
+router.get('/itineraries',requireUser,async(req,res)=>res.json(await Itinerary.find({owner:req.userId}).sort({updatedAt:-1})));
+router.post('/itineraries',requireUser,async(req,res)=>{const name=String(req.body.name||'').trim();if(!name)return res.status(400).json({error:'Dê um nome ao roteiro.'});res.status(201).json(await Itinerary.create({owner:req.userId,name,city:req.body.city||'',date:req.body.date||'',startTime:req.body.startTime||'09:00',travelMode:req.body.travelMode||'driving',shareToken:token()}))});
+router.put('/itineraries/:id',requireUser,async(req,res)=>{const allowed={};for(const k of ['name','city','date','startTime','travelMode','public'])if(req.body[k]!=null)allowed[k]=req.body[k];if(Array.isArray(req.body.items))allowed.items=req.body.items.slice(0,25).map((x,i)=>({spotId:String(x.spotId),order:i,durationMinutes:Number(x.durationMinutes)||90,notes:String(x.notes||'')}));const item=await Itinerary.findOneAndUpdate({_id:req.params.id,owner:req.userId},allowed,{new:true,runValidators:true});if(!item)return res.status(404).json({error:'Roteiro não encontrado.'});res.json(item)});
+router.delete('/itineraries/:id',requireUser,async(req,res)=>{await Itinerary.deleteOne({_id:req.params.id,owner:req.userId});res.json({ok:true})});
+router.get('/itinerary/:token',async(req,res)=>{const item=await Itinerary.findOne({shareToken:req.params.token,public:true}).select('-owner');if(!item)return res.status(404).json({error:'Roteiro não encontrado.'});res.json(item)});
 
 router.post('/partners',requireUser,async(req,res)=>{const b=req.body;if(!b.businessName||!b.category||!b.city||!b.address||!b.contact)return res.status(400).json({error:'Preencha empresa, categoria, cidade, endereço e contato.'});res.status(201).json(await PartnerSubmission.create({...b,user:req.userId,status:'pending'}))});
 router.get('/partners/mine',requireUser,async(req,res)=>res.json(await PartnerSubmission.find({user:req.userId}).sort({createdAt:-1})));
