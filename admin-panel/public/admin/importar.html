@@ -14,6 +14,7 @@
     .result-item { padding:10px 12px; border-radius:10px; background:#f2f5f4; font-size:13px; }
     .result-item.erro { background:#fff0f0; color:#9f2525; }
     .result-item.criado { background:#effbe5; color:#315e11; }
+    .result-item.atualizado { background:#eaf7ff; color:#14577a; }
     .result-item.duplicado { background:#fff8dd; color:#725b00; }
     @media (max-width:900px){ .import-grid { grid-template-columns:1fr; } }
   </style>
@@ -80,7 +81,7 @@
 
     try {
       const data = await api('/api/import/establishments', { method:'POST', body:JSON.stringify(payload) });
-      summary.textContent = `${data.summary.criado} criados, ${data.summary.duplicado} duplicados ignorados e ${data.summary.erro} erros.`;
+      summary.textContent = `${data.summary.criado} criados, ${data.summary.atualizado || 0} atualizados, ${data.summary.duplicado} duplicados ignorados e ${data.summary.erro} erros.`;
       results.innerHTML = data.results.map((item) => `
         <div class="result-item ${item.status}">
           <strong>${item.name}</strong><br>${item.status === 'erro' ? item.error : item.status}

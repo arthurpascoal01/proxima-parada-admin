@@ -167,8 +167,15 @@ router.post('/establishments', requireAuth, async (req, res) => {
       const duplicate = await Establishment.findOne({
         name: { $regex: `^${escapeRegex(name)}$`, $options: 'i' },
         city
-      }).lean();
+      });
       if (duplicate) {
+        if ((!duplicate.photos || duplicate.photos.length === 0) && Array.isArray(raw.photoSourceUrls) && raw.photoSourceUrls.length) {
+          const photo = await copyFirstAvailablePhoto(raw);
+          duplicate.photos = [photo];
+          await duplicate.save();
+          results.push({ index, name, status: 'atualizado', id: duplicate.id, photo });
+          continue;
+        }
         results.push({ index, name, status: 'duplicado', id: duplicate._id.toString() });
         continue;
       }
@@ -208,7 +215,7 @@ router.post('/establishments', requireAuth, async (req, res) => {
   const summary = results.reduce((counts, result) => {
     counts[result.status] = (counts[result.status] || 0) + 1;
     return counts;
-  }, { criado: 0, duplicado: 0, erro: 0 });
+  }, { criado: 0, atualizado: 0, duplicado: 0, erro: 0 });
 
   return res.json({ summary, results });
 });
