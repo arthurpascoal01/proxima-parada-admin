@@ -59,6 +59,10 @@ app.use('/api/users', usersRoutes);
 app.use('/api/platform', platformRoutes);
 app.use('/api/import', bulkImportRoutes);
 
+// Imagens de apoio usadas apenas para a importação inicial. A rota é pública
+// para que o Cloudinary consiga copiá-las; o painel e a API continuam protegidos.
+app.use('/import-assets', express.static(path.join(__dirname, '..', 'public', 'import-assets')));
+
 // Painel admin (arquivos estáticos protegidos, exceto a tela de login)
 app.use('/admin', (req, res, next) => {
   if (req.path === '/index.html' || req.path === '/' || req.path.startsWith('/admin.css') || req.path.startsWith('/admin.js') || req.path.startsWith('/login.js')) {
