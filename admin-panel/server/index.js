@@ -61,7 +61,6 @@ app.use('/api/import', bulkImportRoutes);
 
 // Imagens de apoio usadas apenas para a importação inicial. A rota é pública
 // para que o Cloudinary consiga copiá-las; o painel e a API continuam protegidos.
-app.use('/import-assets', express.static(path.join(__dirname, '..', 'public', 'import-assets')));
 
 // Painel admin (arquivos estáticos protegidos, exceto a tela de login)
 app.use('/admin', (req, res, next) => {
