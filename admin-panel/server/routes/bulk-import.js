@@ -51,7 +51,39 @@ function decodeHtml(value) {
   return String(value)
     .replace(/&amp;/g, '&')
     .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'");
+    .replace(/&#39;/g, "'")
+    .replace(/&#x2F;/gi, '/')
+    .replace(/&#(\d+);/g, (_, code) => String.fromCharCode(Number(code)));
+}
+
+function isUsefulImageUrl(value) {
+  return value
+    && !/^data:/i.test(value)
+    && !/\.(?:svg|ico)(?:$|\?)/i.test(value)
+    && !/(?:logo|favicon|icon|sprite|avatar|placeholder|loading)[-_.\/]/i.test(value);
+}
+
+function findStructuredImage(value) {
+  if (!value || typeof value !== 'object') return '';
+  const image = value.image || value.photo || value.thumbnailUrl || value.contentUrl;
+  if (typeof image === 'string' && isUsefulImageUrl(image)) return image;
+  if (Array.isArray(image)) {
+    for (const entry of image) {
+      if (typeof entry === 'string' && isUsefulImageUrl(entry)) return entry;
+      const nested = findStructuredImage(entry);
+      if (nested) return nested;
+    }
+  } else if (image && typeof image === 'object') {
+    const nested = findStructuredImage(image);
+    if (nested) return nested;
+  }
+  if (Array.isArray(value['@graph'])) {
+    for (const entry of value['@graph']) {
+      const nested = findStructuredImage(entry);
+      if (nested) return nested;
+    }
+  }
+  return '';
 }
 
 async function resolvePhotoSource(source) {
@@ -79,7 +111,36 @@ async function resolvePhotoSource(source) {
       const match = html.match(pattern);
       if (match?.[1]) return new URL(decodeHtml(match[1]), response.url).href;
     }
-    throw new Error('a página não informa uma imagem de capa');
+
+    const structuredData = html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi);
+    for (const match of structuredData) {
+      try {
+        const image = findStructuredImage(JSON.parse(decodeHtml(match[1]).trim()));
+        if (image) return new URL(decodeHtml(image), response.url).href;
+      } catch (_) {
+        // Alguns sites publicam JSON-LD incompleto; seguimos para as imagens da página.
+      }
+    }
+
+    const fallbackPatterns = [
+      /<link[^>]+rel=["']image_src["'][^>]+href=["']([^"']+)["']/i,
+      /<link[^>]+href=["']([^"']+)["'][^>]+rel=["']image_src["']/i,
+      /<meta[^>]+itemprop=["']image["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+itemprop=["']image["']/i
+    ];
+    for (const pattern of fallbackPatterns) {
+      const match = html.match(pattern);
+      if (match?.[1] && isUsefulImageUrl(match[1])) {
+        return new URL(decodeHtml(match[1]), response.url).href;
+      }
+    }
+
+    const imageTags = html.matchAll(/<img\b[^>]*(?:src|data-src|data-lazy-src)=["']([^"']+)["'][^>]*>/gi);
+    for (const match of imageTags) {
+      if (isUsefulImageUrl(match[1])) return new URL(decodeHtml(match[1]), response.url).href;
+    }
+
+    throw new Error('a página não informa uma foto utilizável');
   } finally {
     clearTimeout(timeout);
   }
