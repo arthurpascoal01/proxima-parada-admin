@@ -5,6 +5,7 @@ function sidebarHTML(active) {
     { href: 'dashboard.html', label: 'Estabelecimentos', key: 'dashboard' },
     { href: 'cidades.html', label: 'Cidades', key: 'cidades' },
     { href: 'gestao.html', label: 'Gestão e moderação', key: 'gestao' },
+    { href: 'importar.html', label: 'Importação em lote', key: 'importar' },
     { href: 'destaques.html', label: 'Destaques da home', key: 'destaques' }
   ];
   return `
